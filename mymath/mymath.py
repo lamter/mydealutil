@@ -1,6 +1,6 @@
 # coding: utf-8
-from itertools import chain
 import doctest
+from itertools import chain
 
 def p2f(p):
     """
@@ -52,6 +52,7 @@ def splitnum(num):
         f_nums.append(float(n) / 10 ** index)
 
     return list(chain(i_nums, f_nums))
+
 
 if __name__ == "__mian__":
     doctest.testmod()
