@@ -4,6 +4,9 @@
 """
 from contextlib import contextmanager
 import numpy as np
+import matplotlib
+
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -32,6 +35,7 @@ def draw_nav(series, title=None, figsize=(20, 10), subPlotNum=1, grid=True, logy
             subplot.set_title('logy')
 
     series.plot(ax=subplot, grid=grid, logy=logy)
+
     yield subplot
     plt.close(0)
 
