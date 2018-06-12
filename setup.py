@@ -5,7 +5,7 @@ def read(fname):
     with open(os.path.join(os.path.dirname(__file__), fname)) as f:
         return f.read()
 
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 
 setup(name='mydealutils',
       version=__version__,
