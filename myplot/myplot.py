@@ -9,9 +9,8 @@ from matplotlib.patches import Rectangle
 import matplotlib.dates as mdates
 from matplotlib.dates import DateFormatter, WeekdayLocator, DayLocator, MONDAY, date2num, MonthLocator, YearLocator
 # from matplotlib import candlestick_ohlc
-if sys.platform == 'darwin':
-    plt.rcParams['font.sans-serif'] = ['SimHei']
-    plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
 
 class CandleStick:
