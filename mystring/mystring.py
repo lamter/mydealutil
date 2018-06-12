@@ -38,3 +38,35 @@ def vnpy_opt_DAY_IN_2(opt):
 
 def testest():
     pd.DataFrame().dropna()
+
+
+def df2markdown(df, index=True):
+    """
+
+    根据 df 生成 markdown表格
+
+    :param df:
+    :return:
+    """
+    d = df.copy()
+
+    assert isinstance(d, pd.DataFrame)
+
+    if index:
+        d = d.reset_index()
+    cols = [x for x in d.columns]
+    for col in cols:
+        d[col] = d[col].astype(str)
+
+    cols[0] = ""
+    df = d
+
+    table = ""
+    # 表头
+    table += "|%s|\n" % '|'.join(df.columns)
+    # 右对齐对齐
+    table += "|-:" * df.shape[0] + "|\n"
+    for i in np.array(df):
+        table += "|" + "|".join(i) + "|\n"
+
+    return table

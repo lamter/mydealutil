@@ -54,5 +54,12 @@ def splitnum(num):
     return list(chain(i_nums, f_nums))
 
 
+def t2f(t, dtype=float):
+    """
+    消除千分位分隔符
+    :return:
+    """
+    return dtype(t.replace(',', ''))
+
 if __name__ == "__mian__":
     doctest.testmod()

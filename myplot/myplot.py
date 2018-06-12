@@ -7,7 +7,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 import matplotlib.dates as mdates
 from matplotlib.dates import DateFormatter, WeekdayLocator, DayLocator, MONDAY, date2num, MonthLocator, YearLocator
-from matplotlib.finance import candlestick_ohlc
+# from matplotlib import candlestick_ohlc
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
@@ -20,7 +20,8 @@ class CandleStick:
 
     def __init__(self, data, code=None, fig_ax=None):
         """
-        :param data: pd.DataFrame(columns=["open", "high", "low", "close"])
+        只能聚合日线
+        :param data: pd.DataFrame(columns=["open", "high", "low", "close"], index='date')
         :param code: 股票代码,或者股票名
         :param fig_ax: 给定 (fix, ag)
         :return:

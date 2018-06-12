@@ -4,6 +4,9 @@ import doctest
 import numpy as np
 from matplotlib import cm
 import matplotlib.pyplot as plt
+
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
 from mpl_toolkits.mplot3d import Axes3D
 
 
@@ -14,20 +17,23 @@ class DonchianChannelOpt:
     """
 
     def __init__(self, df):
+        if df.shape[1] != 3:
+            raise ValueError(u"df只能有3个 cols")
         self.df = df.copy()
 
     def draw(self):
         df = self.df
         fig = plt.figure()
         ax = fig.gca(projection='3d')
-        ax.set_xlabel("DAY_IN")
-        ax.set_ylabel("DAY_OUT")
-        ax.set_zlabel("capital")
-        x = df["DAY_IN"]
-        y = df["DAY_OUT"]
-        z = df["capital"]
+        x_col, y_col, z_col = df.columns
+        ax.set_xlabel(x_col)
+        ax.set_ylabel(y_col)
+        ax.set_zlabel(z_col)
+        x = df[x_col]
+        y = df[y_col]
+        z = df[z_col]
+        ax.set_title(z_col)
         ax.plot_trisurf(x, y, z, cmap=cm.jet, linewidth=0.01)
-
 
 
 class Example:
@@ -47,8 +53,6 @@ class Example:
         x = X.flatten()
         y = Y.flatten()
         z = Z.flatten()
-
-
 
         fig = plt.figure()
         ax = fig.gca(projection='3d')
