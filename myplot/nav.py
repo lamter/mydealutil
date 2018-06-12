@@ -2,13 +2,14 @@
 """
 需要使用 with 语法，以保证在批量绘图时能关闭掉图片，以免内存爆掉
 """
+import sys
 from contextlib import contextmanager
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
-plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.rcParams['axes.unicode_minus'] = False
+if sys.platform == 'darwin':
+    plt.rcParams['font.sans-serif'] = ['SimHei']
+    plt.rcParams['axes.unicode_minus'] = False
 
 
 @contextmanager
