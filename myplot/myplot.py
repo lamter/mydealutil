@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -8,7 +9,6 @@ from matplotlib.patches import Rectangle
 import matplotlib.dates as mdates
 from matplotlib.dates import DateFormatter, WeekdayLocator, DayLocator, MONDAY, date2num, MonthLocator, YearLocator
 # from matplotlib import candlestick_ohlc
-
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 

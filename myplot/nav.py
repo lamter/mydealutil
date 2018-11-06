@@ -2,11 +2,11 @@
 """
 需要使用 with 语法，以保证在批量绘图时能关闭掉图片，以免内存爆掉
 """
+import sys
 from contextlib import contextmanager
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -32,6 +32,7 @@ def draw_nav(series, title=None, figsize=(20, 10), subPlotNum=1, grid=True, logy
             subplot.set_title('logy')
 
     series.plot(ax=subplot, grid=grid, logy=logy)
+
     yield subplot
     plt.close(0)
 
