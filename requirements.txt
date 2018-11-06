@@ -1,1 +1,3 @@
 pandas
+pyecharts-snapshot
+pyecharts
