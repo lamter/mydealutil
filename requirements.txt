@@ -1,3 +1,4 @@
 pandas
 pyecharts-snapshot
 pyecharts
+pymongo
