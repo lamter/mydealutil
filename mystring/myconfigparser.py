@@ -8,33 +8,38 @@ except ImportError:
 
 
 class MyConfigParser(configparser.SafeConfigParser):
-    def __init__(self, auto=True, is_origin_optionxform=False, *args, **kwargs):
-        self.auto = auto  # 是否自动转换格式
+    NONE = ['none', 'null', '']
+
+    def __init__(self, is_origin_optionxform=False, *args, **kwargs):
         self.is_origin_optionxform = is_origin_optionxform
         configparser.SafeConfigParser.__init__(self, *args, **kwargs)
 
-        self.autoData = OrderedDict()
+    def autoget(self, section, option):
+        """
+        从已经自动转化格式的数值结构里面获取数值
+        :param section:
+        :param option:
+        :return:
+        """
+        data = self.get(section, option)
+        if (data.startswith('"') and data.endswith('"')) or (data.startswith("'") and data.endswith("'")):
+            # 强制纯文本
+            return data[1:-1]
 
-    def _read(self, fp, fpname):
-        r = super(MyConfigParser, self)._read(fp, fpname)
-        for section in self.sections():
-            if section not in self.autoData:
-                self.autoData[section] = OrderedDict()
-            for option in self.options(section):
-                data = self.get(section, option)
-                if data.startswith('"') and data.endswith('"'):
-                    data = data[1:-1]
-                elif data.startswith("'") and data.endswith("'"):
-                    data = data[1:-1]
-                else:
-                    for func in [self.getboolean, self.getint, self.getfloat]:
-                        try:
-                            data = func(section, option)
-                            break
-                        except ValueError:
-                            pass
-                self.autoData[section][option] = data
-        return r
+        if data.lower() in self.NONE:
+            # None 值
+            return None
+
+        # 尝试转换成 bool int float
+        for func in [self.getboolean, self.getint, self.getfloat]:
+            try:
+                return func(section, option)
+            except ValueError:
+                pass
+
+        # 没有引号的字符串
+        return data
+
     def optionxform(self, optionstr):
         """
         原库中将 option 全部设置为小写，这里设置为不改动
@@ -43,41 +48,9 @@ class MyConfigParser(configparser.SafeConfigParser):
         """
         return super(MyConfigParser, self).optionxform(optionstr) if self.is_origin_optionxform else optionstr
 
-    def autoget(self, section, option):
-        """
-        尝试自动获得数据类型
-        :param section:
-        :param option:
-        :return:
-        """
-        o = self.get(section, option)
-        try:
-            return int(o)
-        except ValueError:
-            pass
-        try:
-            return float(o)
-        except ValueError:
-            pass
-
-        if o.startswith('"') and o.endswith('"'):
-            o = o[1:-1]
-        elif o.startswith("'") and o.endswith("'"):
-            o = o[1:-1]
-        return o
-
     def autoitems(self, section):
         """
         自动获取
         :return:
         """
-        self.items()
-        # return ((s, turn(o)) for s, o in super(MyConfigParser, self).items(section))
-
-
-if __name__ == '__main__':
-    config = MyConfigParser(auto=True)
-    with open('../tmp/test.ini', 'r') as f:
-        config.readfp(f)
-    section = u'中文section'
-    print(config.autoData)
+        return [(option, self.autoget(section, option)) for option in self.options(section)]

@@ -3,6 +3,8 @@ from __future__ import unicode_literals
 import logging
 import pymongo
 import datetime
+
+import arrow
 import pandas as pd
 from pyecharts import Overlap, Line, Kline, Grid
 import pytz
@@ -98,6 +100,7 @@ def qryBarsMongoDB(
         col = db[collection].with_options(
             codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
         cursor = col.find(_flt, {'high': 1, 'low': 1, 'open': 1, 'close': 1, 'volume': 1, 'datetime': 1, '_id': 0})
+
         for d in cursor:
             bars.append(d)
 
@@ -355,6 +358,12 @@ class DealMatcher(object):
 
         self.count = 0
 
+        self.dropCount = 0 # 删除掉的成交条数
+
+        # "整理完成后"，第一个成交单和最后一个成交单的时间
+        self.startTradingDay = None
+        self.endTradingDay = None
+
     def merge(self, tr):
         """
         合并成交单
@@ -395,16 +404,31 @@ class DealMatcher(object):
         :param tr:
         :return:
         """
-        import arrow
+
         if self.openOrder and self.closeOrder:
             if self.openOrder.volume == self.closeOrder.volume:
                 # 开平仓数量一致
+                entryDt= arrow.get(self.openOrder.datetime).datetime
+                exitDt= arrow.get(self.closeOrder.datetime).datetime
+                entryPrice= self.openOrder.price
+                exitPrice= self.closeOrder.price
+                volume= self.openOrder.volume if self.openOrder.direction == DIRECTION_LONG else -self.openOrder.volume
+
+                try:
+                    self.startTradingDay = min(entryDt, self.startTradingDay)
+                except TypeError:
+                    self.startTradingDay = entryDt
+                try:
+                    self.endTradingDay = max(exitDt, self.endTradingDay)
+                except TypeError:
+                    self.endTradingDay= exitDt
+
                 self.tradeResultList.append({
-                    'entryDt': arrow.get(self.openOrder.datetime).datetime,
-                    'exitDt': arrow.get(self.closeOrder.datetime).datetime,
-                    'entryPrice': self.openOrder.price,
-                    'exitPrice': self.closeOrder.price,
-                    'volume': self.openOrder.volume if self.openOrder.direction == DIRECTION_LONG else -self.openOrder.volume,
+                    'entryDt': entryDt,
+                    'exitDt':exitDt,
+                    'entryPrice':entryPrice,
+                    'exitPrice':exitPrice,
+                    'volume':volume,
                 })
                 self.openOrder, self.closeOrder = None, None
                 return
