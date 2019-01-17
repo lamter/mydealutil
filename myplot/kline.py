@@ -1,9 +1,10 @@
 # coding=utf-8
 from __future__ import unicode_literals
 import logging
-import pymongo
 import datetime
+from collections import deque
 
+import pymongo
 import arrow
 import pandas as pd
 from pyecharts import Overlap, Line, Kline, Grid
@@ -36,6 +37,7 @@ def kline_tooltip_formatter(params):
         + params[0].data[5]
     )
     return text
+
 
 def qryBarsMongoDB(
         underlyingSymbol,
@@ -74,7 +76,8 @@ def qryBarsMongoDB(
     bars = []
     contract = db[contract].with_options(
         codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
-    for c in contract.find({'underlyingSymbol': underlyingSymbol, 'activeStartDate': {'$ne': None}}).sort([('startDate', pymongo.ASCENDING),('endDate', pymongo.ASCENDING)]):
+    for c in contract.find({'underlyingSymbol': underlyingSymbol, 'activeStartDate': {'$ne': None}}).sort(
+            [('startDate', pymongo.ASCENDING), ('endDate', pymongo.ASCENDING)]):
         symbol = c['symbol']
         _flt = {
             'symbol': symbol,
@@ -104,7 +107,7 @@ def qryBarsMongoDB(
         for d in cursor:
             bars.append(d)
 
-    return  bars
+    return bars
 
 
 def qryBtresultMongoDB(
@@ -196,7 +199,10 @@ def _aggregate(bars, period='1T'):
         # 'upperLimit': upperLimit,
     }, columns=['open', 'close', 'low', 'high', 'volume']).dropna(how='any')
 
+    ndf = ndf.round({'open': 3, 'close': 3, 'low':3, 'high': 3})
+
     return ndf
+
 
 def _getTradeResultList(tradeResultList, ndf):
     """
@@ -224,13 +230,13 @@ def _getTradeResultList(tradeResultList, ndf):
                 entryDt = r['entryDt'].strftime('%Y-%m-%d %H:%M')
             else:
                 entryDt = r['entryDt'] + datetime.timedelta(seconds=60)
-                entryDt = entryDt .strftime('%Y-%m-%d %H:%M')
+                entryDt = entryDt.strftime('%Y-%m-%d %H:%M')
 
             if r['exitDt'].second == 0:
                 exitDt = r['exitDt'].strftime('%Y-%m-%d %H:%M')
             else:
                 exitDt = r['exitDt'] + datetime.timedelta(seconds=60)
-                exitDt = exitDt .strftime('%Y-%m-%d %H:%M')
+                exitDt = exitDt.strftime('%Y-%m-%d %H:%M')
             tr = {
                 'dt': [entryDt, exitDt],
                 'price': [r['entryPrice'], r['exitPrice']],
@@ -240,11 +246,10 @@ def _getTradeResultList(tradeResultList, ndf):
             # 盈亏
             tr['pro'] = (p[1] - p[0]) * tr['vol']
             trl.append(tr)
-
     return trl
 
-def _getKline(ndf, period):
 
+def _getKline(ndf, period):
     # 生成K线图
     dates = []
     kdata = []
@@ -266,6 +271,7 @@ def _getKline(ndf, period):
     )
 
     return kline
+
 
 def _getTradeLine(tradeResultList):
     line = Line('')
@@ -305,7 +311,6 @@ def tradeOnKLine(period, bars, tradeResultList, width=2000, height=1000):
 
     # 生成成交单
     tradeResultList = _getTradeResultList(tradeResultList, ndf)
-
     # 叠加成交图层
     if tradeResultList:
         line = _getTradeLine(tradeResultList)
@@ -350,6 +355,7 @@ class DealOrder(object):
 
 class DealMatcher(object):
     def __init__(self, df):
+        self.originDF = df
         self.df = df
         self.tradeResultList = []
 
@@ -358,13 +364,15 @@ class DealMatcher(object):
 
         self.count = 0
 
-        self.dropCount = 0 # 删除掉的成交条数
+        self.dropCount = 0  # 删除掉的成交条数
 
         # "整理完成后"，第一个成交单和最后一个成交单的时间
         self.startTradingDay = None
         self.endTradingDay = None
 
-    def merge(self, tr):
+        self.pos = 0  # 当前持仓
+
+    def merge_allOpen_allClose(self, tr):
         """
         合并成交单
         :param tr:
@@ -398,9 +406,9 @@ class DealMatcher(object):
             # 重新进入合并
             self.merge(tr)
 
-    def match(self):
+    def match_allOpen_allClose(self):
         """
-        匹配
+        匹配，单纯匹配 全开-全平模式
         :param tr:
         :return:
         """
@@ -408,11 +416,11 @@ class DealMatcher(object):
         if self.openOrder and self.closeOrder:
             if self.openOrder.volume == self.closeOrder.volume:
                 # 开平仓数量一致
-                entryDt= arrow.get(self.openOrder.datetime).datetime
-                exitDt= arrow.get(self.closeOrder.datetime).datetime
-                entryPrice= self.openOrder.price
-                exitPrice= self.closeOrder.price
-                volume= self.openOrder.volume if self.openOrder.direction == DIRECTION_LONG else -self.openOrder.volume
+                entryDt = arrow.get(self.openOrder.datetime).datetime
+                exitDt = arrow.get(self.closeOrder.datetime).datetime
+                entryPrice = self.openOrder.price
+                exitPrice = self.closeOrder.price
+                volume = self.openOrder.volume if self.openOrder.direction == DIRECTION_LONG else -self.openOrder.volume
 
                 try:
                     self.startTradingDay = min(entryDt, self.startTradingDay)
@@ -421,14 +429,14 @@ class DealMatcher(object):
                 try:
                     self.endTradingDay = max(exitDt, self.endTradingDay)
                 except TypeError:
-                    self.endTradingDay= exitDt
+                    self.endTradingDay = exitDt
 
                 self.tradeResultList.append({
                     'entryDt': entryDt,
-                    'exitDt':exitDt,
-                    'entryPrice':entryPrice,
-                    'exitPrice':exitPrice,
-                    'volume':volume,
+                    'exitDt': exitDt,
+                    'entryPrice': entryPrice,
+                    'exitPrice': exitPrice,
+                    'volume': volume,
                 })
                 self.openOrder, self.closeOrder = None, None
                 return
@@ -439,12 +447,99 @@ class DealMatcher(object):
                 self.openOrder, self.closeOrder = self.closeOrder, None
 
     def do(self):
-        for _, tr in self.df.iterrows():
-            self.merge(tr)
-            self.match()
+        # 选择一种匹配的方法
+        # self.do_allOpen_allClose()
+        self.do_incr_del()
 
         # 模仿从MongoDB 读取的数据结构
         self.originTrl = [{'成交单': self.tradeResultList}]
+
+    def do_incr_del(self):
+        """
+
+        :return:
+        """
+        # 将分块成交的成交单合并
+        g = self.df.groupby(['tradingDay', 'vtOrderID'])
+        df = self.df.drop_duplicates(['tradingDay', 'vtOrderID'], keep='last')
+
+        # 合计成交单的成交数量
+        volume = g.volume.sum()
+        df = df.drop('volume', axis=1)
+        df['volume'] = volume.values
+
+        self.df = df
+
+        waitMatch = deque()
+
+        startTradingDay = endTradingDay = None
+
+        for _, td in df.iterrows():
+            if not waitMatch:
+                waitMatch.append(td)
+                # 没有等待撮合缓存的成交单
+                continue
+
+            lastTd = waitMatch.popleft()
+            if lastTd.direction == td.direction:
+                # 开仓方向相当，继续等待撮合
+                waitMatch.appendleft(lastTd)
+                waitMatch.append(td)
+                continue
+
+            while True:
+                volume = min(lastTd.volume, td.volume)
+                # td 视为平仓单，如果是平空，则td.direction == DIRECTION_SHORT，而该笔成交对应该是开多平空，volume为正数
+                volume = volume if td.direction == DIRECTION_SHORT else -volume
+                entryDt, exitDt = lastTd.datetime, td.datetime
+                entryPrice, exitPrice = lastTd.price, td.price
+
+                try:
+                    startTradingDay = min(entryDt, startTradingDay)
+                except TypeError:
+                    startTradingDay = entryDt
+                try:
+                    endTradingDay = max(exitDt, endTradingDay)
+                except TypeError:
+                    endTradingDay = exitDt
+
+                self.tradeResultList.append({
+                    'entryDt': entryDt,
+                    'exitDt': exitDt,
+                    'entryPrice': round(entryPrice, 3),
+                    'exitPrice': round(exitPrice, 3),
+                    'volume': volume,
+                })
+
+                # 尝试撮合
+                if lastTd.volume > td.volume:
+                    # 等待撮合的成交单没用完，留着下次继续用
+                    lastTd.volume -= td.volume
+                    waitMatch.appendleft(lastTd)
+                elif lastTd.volume < td.volume:
+                    # 等待撮合的成交单不够用，继续撮合
+                    td.volume -= lastTd.volume
+                    if waitMatch:
+                        # 提取一个继续撮合
+                        lastTd = waitMatch.popleft()
+                    else:
+                        # 没有等待撮合的成交单了，撮合结束
+                        waitMatch.append(td)
+                        break
+                else:
+                    break
+
+        if startTradingDay:
+            self.startTradingDay = arrow.get(
+                '{} 00:00:00+08'.format(startTradingDay.strftime('%Y-%m-%d'))).datetime
+        if endTradingDay :
+            self.endTradingDay = arrow.get('{} 00:00:00+08'.format(endTradingDay.strftime('%Y-%m-%d'))).datetime
+
+    def do_allOpen_allClose(self):
+        for _, tr in self.df.iterrows():
+            # 选择一种平仓模式即可
+            self.merge_allOpen_allClose(tr)
+            self.match_allOpen_allClose()
 
 
 def qryTradeListMongodb(host, port, dbn, username, password, collection, sql):
@@ -475,6 +570,7 @@ def qryTradeListMongodb(host, port, dbn, username, password, collection, sql):
     df = pd.DataFrame(documents)
     # 查询结果根据时间排序
     df = df.reset_index(drop=False)
+    # 去掉重复收到的成交单
     df = df.drop_duplicates(['datetime', 'tradeID'])
     df = df.sort_values(['datetime', 'index'])
 
@@ -482,4 +578,3 @@ def qryTradeListMongodb(host, port, dbn, username, password, collection, sql):
     matcher = DealMatcher(df)
     matcher.do()
     return matcher
-
